@@ -89,17 +89,7 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
 		std::vector<LandmarkObs> observations, Map map_landmarks) {
-	// TODO: Update the weights of each particle using a multi-variate Gaussian distribution. You can read
-	//   more about this distribution here: https://en.wikipedia.org/wiki/Multivariate_normal_distribution
-	// NOTE: The observations are given in the VEHICLE'S coordinate system. Your particles are located
-	//   according to the MAP'S coordinate system. You will need to transform between the two systems.
-	//   Keep in mind that this transformation requires both rotation AND translation (but no scaling).
-	//   The following is a good resource for the theory:
-	//   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
-	//   and the following is a good resource for the actual equation to implement (look at equation 
-	//   3.33.
-	//   http://planning.cs.uiuc.edu/node99.html
-
+	// TODO: Update the weights of each particle using a multi-variate Gaussian distribution.
 
     /*
      * 1. Make list of all landmarks within sensor range of particle, call this `predicted_lm`
@@ -143,19 +133,22 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         // calc weights
         double w = 1.0;
-        for (auto obs:global_obs){
+        double scale = 1.0/(2*M_PI*std_landmark[0]*std_landmark[1]);
+        double two_sig_x_sq = 2*std_landmark[0]*std_landmark[0];
+        double two_sig_y_sq = 2*std_landmark[1]*std_landmark[1];
 
+        for (auto obs:global_obs){ // iterate over observations
 
+            for (auto lm:pred_lm){  // iterate over pred landmarks
 
+                if (lm.id == obs.id){ // if landmark is the associated landmark
+
+                    w *= scale*exp(-1.0*( (pow(obs.x-lm.x ,2) / two_sig_x_sq) + (pow(obs.y-lm.y ,2) / two_sig_y_sq) ));
+                }
+            }
         }
-
-
-
-
-
-
+        p.weight = w; // assign weigth to particle
     }
-
 }
 
 void ParticleFilter::resample() {
@@ -163,6 +156,24 @@ void ParticleFilter::resample() {
 	// NOTE: You may find std::discrete_distribution helpful here.
 	//   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
 
+    std::vector<Particle> resampled_particles;
+    resampled_particles.clear();
+
+    std::default_random_engine rnd;  //random number generator
+    // get weights vector for discrete distribution
+    std::vector<double> weights;
+    weights.clear();
+    for (auto p:particles){
+        weights.push_back(p.weight);
+    }
+
+    std::discrete_distribution<> distri (weights.begin(), weights.end());
+
+    for (int i=0; i<num_particles; ++i){
+        resampled_particles.push_back(particles[distri(rnd)]);
+    }
+
+    particles = resampled_particles;
 }
 
 void ParticleFilter::write(std::string filename) {
