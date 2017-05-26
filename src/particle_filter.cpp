@@ -18,6 +18,9 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
 
+    // number of particles
+    num_particles =100;
+
     // noise arrays with gps measurement uncertainty
     std::normal_distribution<double> N_x_init(0, std[0]);
     std::normal_distribution<double> N_y_init(0, std[1]);
@@ -49,8 +52,9 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     std::normal_distribution<double> N_theta(0, std_pos[2]);
     std::default_random_engine rnd;  //random number
 
+
     // update location based on velocity and yaw_rate, add normally distributed gaussian noise with 0 mean and std_pos
-    for (auto p:particles){ // iterate over particles
+    for (auto &p:particles){ // iterate over particles
         if(fabs(yaw_rate)<0.001){ // for zero yaw rate
             p.x += velocity*cos(p.theta)*delta_t + N_x(rnd);
             p.y += velocity*sin(p.theta)*delta_t + N_y(rnd);
@@ -71,11 +75,11 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   implement this method and use it as a helper during the updateWeights phase.
 
 
-    for (auto obs:observations){
+    for (auto &obs:observations){
         int min_id = 0;
         double min_dist = 1000;
 
-        for (auto lm:predicted){
+        for (auto const &lm:predicted){
             double distance=dist(lm.x, lm.y, obs.x, obs.y);
             if (distance < min_dist){
                 min_id = lm.id;
@@ -84,7 +88,6 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
         obs.id = min_id;
         }
     }
-
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[], 
@@ -102,12 +105,13 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
      *
      */
 
-
-    for (auto p:particles){
+    for (auto &p:particles){
+        //std::cout<<"UPDATING WEIGTHS: Particle: "<<p.id <<std::endl;
 
         // get landmarks in sensor range
         std::vector<LandmarkObs> pred_lm;
-        for (auto lm:map_landmarks.landmark_list){
+        pred_lm.clear();
+        for (auto const &lm:map_landmarks.landmark_list){
             if ((p.x-sensor_range < lm.x_f && lm.x_f < p.x+sensor_range) &&
                     (p.y-sensor_range < lm.y_f && lm.y_f < p.y+sensor_range)){
                 LandmarkObs plm;
@@ -120,7 +124,8 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         // translate observation coords in global coords
         std::vector<LandmarkObs> global_obs;
-        for (auto obs:observations){
+        global_obs.clear();
+        for (auto const &obs:observations){
             LandmarkObs glob_obs;
             glob_obs.id = obs.id;
             glob_obs.x = obs.x*cos(p.theta)-obs.y*sin(p.theta)+p.x;
@@ -137,9 +142,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         double two_sig_x_sq = 2*std_landmark[0]*std_landmark[0];
         double two_sig_y_sq = 2*std_landmark[1]*std_landmark[1];
 
-        for (auto obs:global_obs){ // iterate over observations
+        for (auto const &obs:global_obs){ // iterate over observations
 
-            for (auto lm:pred_lm){  // iterate over pred landmarks
+            for (auto const &lm:pred_lm){  // iterate over pred landmarks
 
                 if (lm.id == obs.id){ // if landmark is the associated landmark
 
@@ -148,6 +153,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
             }
         }
         p.weight = w; // assign weigth to particle
+        //std::cout<< "Weight of Particle number "<< p.id <<" is "<<p.weight<<std::endl;
     }
 }
 
@@ -163,7 +169,7 @@ void ParticleFilter::resample() {
     // get weights vector for discrete distribution
     std::vector<double> weights;
     weights.clear();
-    for (auto p:particles){
+    for (auto const &p:particles){
         weights.push_back(p.weight);
     }
 
